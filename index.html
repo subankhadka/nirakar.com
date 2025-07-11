@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nirakar Attendance</title>
+  <style>
+    /* Basic Reset and Theme */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4fff2;
+      color: #2e4d2c;
+      display: flex;
+      min-height: 100vh;
+    }
+    #sidebar {
+      background: #326b3f;
+      color: #ffffff;
+      width: 240px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #sidebar h1 {
+      font-size: 1.6rem;
+      margin: 15px 0 0;
+      text-align: center;
+    }
+    #sidebar img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: white;
+      padding: 5px;
+    }
+    #main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 6px 0;
+      font-size: 1rem;
+      width: 100%;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+    }
+    button {
+      background: #326b3f;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #244d2c;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+    th {
+      background: #326b3f;
+      color: white;
+    }
+    .section {
+      margin-top: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    .location {
+      font-size: 0.85rem;
+      color: #0b3d0b;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/4/49/Leaf_icon.png" alt="Logo" />
+    <h1>Nirakar<br>Attendance</h1>
+  </div>
+  <div id="main">
+    <!-- Login Section -->
+    <div id="loginSection">
+      <h2>User Login</h2>
+      <input type="password" id="userPass" placeholder="Enter User Password" />
+      <button onclick="loginUser()">Login as User</button>
+      <br><br>
+      <h2>Admin Login</h2>
+      <input type="password" id="adminPass" placeholder="Enter Admin Password" />
+      <button onclick="loginAdmin()">Login as Admin</button>
+      <div id="loginMessage" style="color:red;margin-top:10px;"></div>
+    </div>
+
+    <!-- User Section -->
+    <div id="userSection" class="hidden">
+      <h2>Mark Attendance</h2>
+      <select id="userName">
+        <option value="">-- Select Your Name --</option>
+      </select>
+      <button onclick="checkIn()">Check In</button>
+      <button onclick="checkOut()">Check Out</button>
+      <div id="userStatus" style="margin-top:10px;color:green;"></div>
+      <button onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Admin Section -->
+    <div id="adminSection" class="hidden">
+      <h2>Admin Panel</h2>
+      <div class="section">
+        <h3>Add Employee</h3>
+        <input type="text" id="newEmp" placeholder="Full Name" />
+        <button onclick="addEmployee()">Add</button>
+      </div>
+
+      <div class="section">
+        <h3>Employee List</h3>
+        <ul id="empList"></ul>
+      </div>
+
+      <div class="section">
+        <h3>Today’s Attendance</h3>
+        <table id="todayTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Check In</th>
+              <th>Check In Location</th>
+              <th>Check Out</th>
+              <th>Check Out Location</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h3>All Records</h3>
+        <button onclick="toggleRecords()">Show/Hide Records</button>
+        <button onclick="exportCSV()">Export CSV</button>
+        <table id="allTable" class="hidden">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Check In</th>
+              <th>Check In Location</th>
+              <th>Check Out</th>
+              <th>Check Out Location</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <button onclick="logout()">Logout Admin</button>
+    </div>
+  </div>
+
+  <script>
+    const userPass = "nirakar007";
+    const adminPass = "nirakaradmins";
+    const empKey = "employees";
+    const recKey = "records";
+
+    let employees = JSON.parse(localStorage.getItem(empKey)) || [
+      "Rita Dulal", "Padam Kumari Acharya", "Anisha Puri",
+      "Yasoda Basnet", "Anjali Tajpuriya", "Binita Vishwokarma"
+    ];
+    localStorage.setItem(empKey, JSON.stringify(employees));
+
+    const records = JSON.parse(localStorage.getItem(recKey)) || {};
+
+    function saveRecords() {
+      localStorage.setItem(recKey, JSON.stringify(records));
+    }
+
+    function getToday() {
+      return new Date().toISOString().split("T")[0];
+    }
+
+    function getTime() {
+      const d = new Date();
+      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    }
+
+    function getLocation(cb) {
+      if (!navigator.geolocation) return cb("N/A");
+      navigator.geolocation.getCurrentPosition(pos => {
+        cb(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+      }, () => cb("Not Provided"));
+    }
+
+    function populateEmployees() {
+      const select = document.getElementById("userName");
+      select.innerHTML = `<option value="">-- Select Your Name --</option>`;
+      employees.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e;
+        opt.textContent = e;
+        select.appendChild(opt);
+      });
+
+      const list = document.getElementById("empList");
+      list.innerHTML = "";
+      employees.forEach(e => {
+        const li = document.createElement("li");
+        li.textContent = e;
+        list.appendChild(li);
+      });
+    }
+
+    function loginUser() {
+      const pass = document.getElementById("userPass").value;
+      if (pass === userPass) {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("userSection").classList.remove("hidden");
+        populateEmployees();
+        document.getElementById("loginMessage").textContent = "";
+      } else {
+        document.getElementById("loginMessage").textContent = "Wrong user password!";
+      }
+    }
+
+    function loginAdmin() {
+      const pass = document.getElementById("adminPass").value;
+      if (pass === adminPass) {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("adminSection").classList.remove("hidden");
+        populateEmployees();
+        fillTodayTable();
+        fillAllTable();
+        document.getElementById("loginMessage").textContent = "";
+      } else {
+        document.getElementById("loginMessage").textContent = "Wrong admin password!";
+      }
+    }
+
+    function logout() {
+      location.reload();
+    }
+
+    function addEmployee() {
+      const name = document.getElementById("newEmp").value.trim();
+      if (name && !employees.includes(name)) {
+        employees.push(name);
+        localStorage.setItem(empKey, JSON.stringify(employees));
+        populateEmployees();
+        document.getElementById("newEmp").value = "";
+      }
+    }
+
+    function checkIn() {
+      const name = document.getElementById("userName").value;
+      if (!name) return alert("Select your name");
+      getLocation(loc => {
+        const today = getToday();
+        records[today] = records[today] || {};
+        if (!records[today][name]) records[today][name] = {};
+        if (records[today][name].checkIn) return alert("Already checked in.");
+        records[today][name].checkIn = getTime();
+        records[today][name].checkInLoc = loc;
+        saveRecords();
+        document.getElementById("userStatus").textContent = `Checked in at ${records[today][name].checkIn}`;
+      });
+    }
+
+    function checkOut() {
+      const name = document.getElementById("userName").value;
+      if (!name) return alert("Select your name");
+      getLocation(loc => {
+        const today = getToday();
+        if (!records[today] || !records[today][name]?.checkIn) return alert("Must check in first.");
+        if (records[today][name].checkOut) return alert("Already checked out.");
+        records[today][name].checkOut = getTime();
+        records[today][name].checkOutLoc = loc;
+        saveRecords();
+        document.getElementById("userStatus").textContent = `Checked out at ${records[today][name].checkOut}`;
+      });
+    }
+
+    function fillTodayTable() {
+      const today = getToday();
+      const tbody = document.querySelector("#todayTable tbody");
+      tbody.innerHTML = "";
+      const recs = records[today] || {};
+      for (let name in recs) {
+        const r = recs[name];
+        const row = `<tr><td>${name}</td><td>${r.checkIn || "-"}</td><td>${r.checkInLoc || "-"}</td><td>${r.checkOut || "-"}</td><td>${r.checkOutLoc || "-"}</td></tr>`;
+        tbody.innerHTML += row;
+      }
+    }
+
+    function fillAllTable() {
+      const tbody = document.querySelector("#allTable tbody");
+      tbody.innerHTML = "";
+      Object.keys(records).sort().forEach(date => {
+        const recs = records[date];
+        for (let name in recs) {
+          const r = recs[name];
+          const row = `<tr><td>${date}</td><td>${name}</td><td>${r.checkIn || "-"}</td><td>${r.checkInLoc || "-"}</td><td>${r.checkOut || "-"}</td><td>${r.checkOutLoc || "-"}</td></tr>`;
+          tbody.innerHTML += row;
+        }
+      });
+    }
+
+    function toggleRecords() {
+      const t = document.getElementById("allTable");
+      t.classList.toggle("hidden");
+    }
+
+    function exportCSV() {
+      let csv = "Date,Name,Check In,Check In Location,Check Out,Check Out Location\n";
+      Object.keys(records).forEach(date => {
+        const recs = records[date];
+        for (let name in recs) {
+          const r = recs[name];
+          csv += `${date},${name},${r.checkIn || ""},${r.checkInLoc || ""},${r.checkOut || ""},${r.checkOutLoc || ""}\n`;
+        }
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "nirakar_attendance.csv";
+      a.click();
+    }
+  </script>
+</body>
+</html>
